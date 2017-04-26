@@ -610,8 +610,8 @@ func (d *Driver) ApplyDiff(id string, parent string, diff io.Reader) (size int64
 		return d.naiveDiff.ApplyDiff(id, parent, diff)
 	}
 
-	//applyDir := d.getDiffPath(id)
-	applyDir := path.Join(nfs_root,id,"diff")
+	applyDir := d.getDiffPath(id)
+	//applyDir := path.Join(nfs_root,id,"diff")
 
 	logrus.Warn("Applying2 tar in", applyDir, "here is more stuff")
 	// Overlay doesn't need the parent id to apply the diff
@@ -627,9 +627,9 @@ func (d *Driver) ApplyDiff(id string, parent string, diff io.Reader) (size int64
 }
 
 func (d *Driver) getDiffPath(id string) string {
-	dir := d.dir(id)
+	//dir := d.dir(id)
 
-	return path.Join(dir, "diff")
+	return path.Join(nfs_root,id,"diff")
 }
 
 // DiffSize calculates the changes between the specified id
