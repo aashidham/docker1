@@ -38,6 +38,8 @@ import (
 var (
 	// untar defines the untar method
 	untar = chrootarchive.UntarUncompressed
+	nfs_root = "/go/src"
+	//nfs_root = "/efs4/overlay1"
 )
 
 // This backend uses the overlay union filesystem for containers
@@ -120,7 +122,7 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 	if err != nil {
 		return nil, err
 	}
-
+        logrus.Debugf("Hey this is aashidham in init")
 	if err := supportsOverlay(); err != nil {
 		return nil, graphdriver.ErrNotSupported
 	}
@@ -322,6 +324,10 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		return err
 	}
 
+	if err := idtools.MkdirAs(path.Join(nfs_root,id), 0700, rootUID, rootGID); err != nil {
+                return err
+        }
+
 	defer func() {
 		// Clean up on failure
 		if retErr != nil {
@@ -347,8 +353,10 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		return err
 	}
 
+	if err := idtools.MkdirAs(path.Join(nfs_root,id,"diff"), 0755, rootUID, rootGID); err != nil { return err }
+
 	lid := generateID(idLength)
-	if err := os.Symlink(path.Join("..", id, "diff"), path.Join(d.home, linkDir, lid)); err != nil {
+	if err := os.Symlink(path.Join(nfs_root, id, "diff"), path.Join(d.home, linkDir, lid)); err != nil {
 		return err
 	}
 
@@ -473,6 +481,8 @@ func (d *Driver) Get(id string, mountLabel string) (s string, err error) {
 	}
 
 	diffDir := path.Join(dir, "diff")
+	logrus.Warn("attempting to set lowers")
+	logrus.Warn(path.Join(dir, lowerFile))
 	lowers, err := ioutil.ReadFile(path.Join(dir, lowerFile))
 	if err != nil {
 		// If no lower, just return diff directory
@@ -481,6 +491,7 @@ func (d *Driver) Get(id string, mountLabel string) (s string, err error) {
 		}
 		return "", err
 	}
+	logrus.Warn(string(lowers))
 
 	mergedDir := path.Join(dir, "merged")
 	if count := d.ctr.Increment(mergedDir); count > 1 {
@@ -533,6 +544,9 @@ func (d *Driver) Get(id string, mountLabel string) (s string, err error) {
 		mountTarget = path.Join(id, "merged")
 	}
 
+	logrus.Warn("Right before mount")
+	logrus.Warn(mountTarget)
+	logrus.Warn( mountData)
 	if err := mount("overlay", mountTarget, "overlay", 0, mountData); err != nil {
 		return "", fmt.Errorf("error creating overlay mount to %s: %v", mergedDir, err)
 	}
@@ -596,9 +610,10 @@ func (d *Driver) ApplyDiff(id string, parent string, diff io.Reader) (size int64
 		return d.naiveDiff.ApplyDiff(id, parent, diff)
 	}
 
-	applyDir := d.getDiffPath(id)
+	//applyDir := d.getDiffPath(id)
+	applyDir := path.Join(nfs_root,id,"diff")
 
-	logrus.Debugf("Applying tar in %s", applyDir)
+	logrus.Warn("Applying2 tar in", applyDir, "here is more stuff")
 	// Overlay doesn't need the parent id to apply the diff
 	if err := untar(diff, applyDir, &archive.TarOptions{
 		UIDMaps:        d.uidMaps,
